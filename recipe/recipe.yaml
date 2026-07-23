@@ -10,8 +10,11 @@ source:
   sha256: e44d3eed7250768742b3558491ae41ea88c621803ce1afbed690d188505fb8aa
 
 build:
-  script: python -m pip install . -vv
   number: 0
+  python:
+    version_independent: true
+  script: ${{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  skip: is_abi3 and not is_python_min
 
 requirements:
   build:
@@ -27,6 +30,9 @@ requirements:
     - pip
     - hatchling
     - hatch-cpp
+    - if: is_abi3
+      then:
+        - python-abi3
   run:
     - python
     - numba >=0.64
@@ -38,6 +44,20 @@ tests:
         - numba_cfunc_compiler
         - numba_cfunc_compiler.numba_rt
       pip_check: true
+      python_version:
+        - ${{ python_min }}.*
+        - "*"
+  - if: is_abi3
+    then:
+      script:
+        - if: win
+          then: abi3audit %PREFIX%/Lib/site-packages/numba_cfunc_compiler/numba_rt/_py_nrt_init.pyd -s -v --assume-minimum-abi3 ${{ python_min }}
+          else:
+            - export SP_DIR=$(python -c "import site; print(site.getsitepackages()[0])")
+            - abi3audit $SP_DIR/numba_cfunc_compiler/numba_rt/_py_nrt_init.abi3.so -s -v --assume-minimum-abi3 ${{ python_min }}
+      requirements:
+        run:
+          - abi3audit
 
 about:
   homepage: https://github.com/Point72/numba-cfunc-compiler
